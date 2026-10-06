@@ -1,11 +1,14 @@
 {
   "name": "taraftar-savasi-tiktok-live",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node server-prod.js",
+    "dev": "node --watch server-prod.js"
   },
   "dependencies": {
     "express": "^5.1.0",
