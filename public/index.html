@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
+<meta name="theme-color" content="#07101d"/>
+<title>Taraftar Savaşı</title>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div id="app">
+  <main id="stage">
+    <div class="stadium"></div>
+    <div class="lights"></div>
+
+    <header class="top">
+      <div class="brand">
+        <span class="ball">⚽</span>
+        <div><b>TARAFTAR SAVAŞI</b><small>Takımını yaz • Takımını zirveye taşı</small></div>
+      </div>
+      <div id="clock">30:00</div>
+    </header>
+
+    <section class="leader-panel">
+      <div class="leader-label">👑 ŞU ANIN KRALI</div>
+      <div id="leaderName">Henüz lider yok</div>
+      <div id="leaderScore">0 PUAN</div>
+      <div id="leaderDance" class="leader-avatar">
+        <div class="crown">♛</div>
+        <div class="head">😎</div>
+        <div class="body"><span></span></div>
+      </div>
+    </section>
+
+    <section id="teams" class="teams"></section>
+
+    <section class="ticker">
+      <div id="eventText">💬 Takımını sohbete yaz ve savaşa katıl!</div>
+    </section>
+
+    <footer>
+      <div>💬 GS • FB • BJK • TS • AMED • BURSA • KŞP • KÖRFEZ</div>
+      <div>👍 Her 200 beğeni = takımına +5 puan</div>
+      <div>🎁 Tanımsız hediyeler bile otomatik puana dönüşür</div>
+    </footer>
+
+    <div id="fx"></div>
+    <div id="toast"></div>
+    <button id="settingsBtn" aria-label="Ayarlar">⚙️</button>
+  </main>
+
+  <aside id="panel" class="panel hidden">
+    <div class="panel-head">
+      <div><b>Yayın Kontrolü</b><small>Yalnızca sen görürsün; ekran paylaşımında kapat.</small></div>
+      <button id="closePanel">✕</button>
+    </div>
+
+    <label>TikTok kullanıcı adın</label>
+    <div class="row"><input id="ttUser" placeholder="@kullaniciadi"/><button id="connectBtn">Bağlan</button></div>
+    <div id="connStatus" class="status">Test modu</div>
+
+    <label>Tur süresi</label>
+    <div class="row">
+      <button class="roundBtn active" data-min="30">30 dk</button>
+      <button class="roundBtn" data-min="40">40 dk</button>
+      <button id="resetBtn">Turu sıfırla</button>
+    </div>
+
+    <hr/>
+    <b>Test Paneli</b>
+    <small>Canlıya bağlanmadan animasyonları dene.</small>
+    <label>Takım</label>
+    <select id="testTeam"></select>
+    <label>Test kullanıcı adı</label>
+    <input id="testUser" value="deneme"/>
+    <div class="test-grid">
+      <button data-test="join">Takıma Katıl</button>
+      <button data-test="like">+200 👍</button>
+      <button data-gift="1">Gül / küçük</button>
+      <button data-gift="10">Gol hediyesi</button>
+      <button data-gift="50">Saldırı</button>
+      <button data-gift="250">Süper Gol</button>
+      <button data-gift="750">Krallık</button>
+      <button data-gift="2000">Stadyum Şovu</button>
+    </div>
+  </aside>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
