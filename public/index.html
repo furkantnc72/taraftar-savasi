@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
 <meta name="theme-color" content="#07101d"/>
 <title>Taraftar Savaşı</title>
-<link rel="stylesheet" href="style.css"/>
-<link rel="stylesheet" href="kits.css"/>
-<link rel="stylesheet" href="enhancements.css"/>
+<link rel="stylesheet" href="style.css?v=20261006-3"/>
+<link rel="stylesheet" href="kits.css?v=20261006-3"/>
+<link rel="stylesheet" href="enhancements.css?v=20261006-3"/>
 </head>
 <body>
 <div id="app">
@@ -89,12 +89,15 @@
 </div>
 <script>
 if (!location.hostname.endsWith('github.io')) {
-  document.write('<script src="/socket.io/socket.io.js"><\\/script>');
+  const s=document.createElement('script');
+  s.src='/socket.io/socket.io.js';
+  s.async=false;
+  document.head.appendChild(s);
 }
 </script>
-<script src="app.js"></script>
-<script src="kits.js"></script>
-<script src="music.js"></script>
-<script src="enhancements.js"></script>
+<script src="app.js?v=20261006-3"></script>
+<script src="kits.js?v=20261006-3"></script>
+<script src="music.js?v=20261006-3"></script>
+<script src="enhancements.js?v=20261006-3"></script>
 </body>
 </html>
