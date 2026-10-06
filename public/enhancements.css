@@ -1,0 +1,48 @@
+/* Taraftar Savaşı - galibiyet, hediye şovu ve kontrol paneli */
+#stage{transition:transform .32s ease,filter .25s ease}
+
+.wins-board{height:3.8%;margin:0 4% 1.2%;display:flex;align-items:center;gap:8px;padding:0 9px;border:1px solid #ffd75e33;border-radius:12px;background:#050a11d9;box-shadow:0 5px 16px #0006;overflow:hidden}
+.wins-title{flex:0 0 auto;font-size:clamp(7px,1.65vw,11px);font-weight:950;color:#ffd75e;letter-spacing:.45px}
+#winsList{display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;white-space:nowrap;font-size:clamp(7px,1.65vw,11px);font-weight:900}
+.win-pill{display:inline-flex;align-items:center;gap:2px;padding:2px 5px;border-radius:999px;background:#ffffff0d;border:1px solid #ffffff12}
+.win-pill:first-child{background:#ffd75e18;border-color:#ffd75e55}
+
+.leader-panel{height:13.2%;margin-bottom:1.2%}
+.teams{height:52.6%}
+.team .wins-badge{position:absolute;right:4%;top:39%;z-index:4;font-size:clamp(8px,1.9vw,12px);font-weight:950;padding:2px 5px;border-radius:999px;background:#02060ca8;border:1px solid #ffd75e55;color:#ffe78c;box-shadow:0 2px 8px #0007}
+.team.leader .wins-badge{box-shadow:0 0 12px #ffd75e77;background:#342a0ebd}
+
+.panel{right:14px;top:12px;width:min(370px,calc(100vw - 24px));max-height:calc(100vh - 24px)}
+body.panel-open #settingsBtn{opacity:1}
+@media (min-width:760px){
+  body.panel-open #stage{transform:translateX(-min(15vw,220px)) scale(.97)}
+}
+@media (max-width:759px){
+  .panel{right:8px;top:8px;width:min(330px,calc(100vw - 16px));max-height:calc(100vh - 16px)}
+  body.panel-open #stage{transform:translateX(-22vw) scale(.72);transform-origin:left center}
+}
+
+.gift-spectacle{position:absolute;inset:0;z-index:28;pointer-events:none;overflow:hidden}
+.gift-card{position:absolute;left:7%;right:7%;top:37%;z-index:31;text-align:center;border-radius:22px;padding:13px 12px 12px;background:linear-gradient(145deg,#05070de8,#10192be8);border:1px solid #ffffff38;box-shadow:0 18px 65px #000d,0 0 35px var(--giftGlow,#ffffff44);backdrop-filter:blur(8px);animation:giftCard 2.7s ease forwards}
+.gift-card .gift-kicker{font-size:clamp(9px,2vw,13px);font-weight:950;letter-spacing:1.6px;color:#ffe27a}
+.gift-card .gift-icon{display:block;font-size:clamp(38px,11vw,75px);line-height:1;margin:4px 0;filter:drop-shadow(0 0 18px var(--giftGlow,#fff8))}
+.gift-card .gift-name{font-size:clamp(17px,4.8vw,32px);font-weight:1000;text-shadow:0 3px 12px #000}
+.gift-card .gift-meta{font-size:clamp(10px,2.35vw,15px);font-weight:850;color:#e7edf8;margin-top:3px}
+.gift-card .gift-value{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:999px;background:#ffd75e;color:#181102;font-weight:1000;font-size:clamp(11px,2.7vw,17px)}
+@keyframes giftCard{0%{opacity:0;transform:scale(.35) rotate(-5deg)}10%{opacity:1;transform:scale(1.08) rotate(1deg)}18%,76%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.12) translateY(-14px)}}
+
+.gift-particle{position:absolute;z-index:29;font-size:clamp(20px,6vw,42px);left:50%;top:58%;filter:drop-shadow(0 3px 8px #000b);animation:giftFly var(--dur,1.9s) cubic-bezier(.15,.65,.15,1) forwards}
+@keyframes giftFly{0%{opacity:0;transform:translate(-50%,-50%) scale(.25) rotate(0)}10%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--gx)),calc(-50% + var(--gy))) scale(var(--gs,1.25)) rotate(var(--gr,460deg))}}
+.gift-ring{position:absolute;left:50%;top:51%;width:35%;aspect-ratio:1;border-radius:50%;border:4px solid #fff9;box-shadow:0 0 25px #fff8,inset 0 0 25px #fff5;transform:translate(-50%,-50%);animation:ringBoom 1.5s ease-out forwards}
+@keyframes ringBoom{0%{opacity:1;transform:translate(-50%,-50%) scale(.15)}100%{opacity:0;transform:translate(-50%,-50%) scale(3.7)}}
+.gift-rays{position:absolute;inset:-25%;background:repeating-conic-gradient(from 0deg,#ffffff18 0deg 4deg,transparent 4deg 14deg);animation:rays 2.4s linear forwards}
+@keyframes rays{0%{opacity:0;transform:rotate(0) scale(.7)}15%,70%{opacity:.8}100%{opacity:0;transform:rotate(65deg) scale(1.35)}}
+
+#stage.gift-tier-4{filter:brightness(1.07)}
+#stage.gift-tier-5{filter:brightness(1.12) saturate(1.08)}
+#stage.gift-tier-6{filter:brightness(1.18) saturate(1.18)}
+#stage.gift-tier-7,#stage.gift-tier-8,#stage.gift-tier-9{filter:brightness(1.24) saturate(1.28)}
+
+.panel .danger-soft{background:#3a1d24;border-color:#ff879044}
+.panel .test-section-title{margin-top:10px;display:block;color:#ffd75e}
+.panel .value-guide{font-size:11px;line-height:1.45;color:#aebcd0;background:#08111d;border:1px solid #ffffff12;border-radius:10px;padding:9px;margin-top:9px}
