@@ -87,7 +87,11 @@
     </div>
   </aside>
 </div>
-<script src="/socket.io/socket.io.js"></script>
+<script>
+if (!location.hostname.endsWith('github.io')) {
+  document.write('<script src="/socket.io/socket.io.js"><\\/script>');
+}
+</script>
 <script src="app.js"></script>
 <script src="kits.js"></script>
 <script src="music.js"></script>
