@@ -29,11 +29,13 @@
     const teams=state?.teams||{};
     Object.entries(teams).forEach(([id,t])=>{
       const badge=document.querySelector(`.team[data-id="${id}"] .wins-badge`);
-      if(badge) badge.textContent=`🏆 ${Number(t?.wins||0)}`;
+      const next=`🏆 ${Number(t?.wins||0)}`;
+      if(badge && badge.textContent!==next) badge.textContent=next;
     });
     const sorted=Object.entries(teams).sort((a,b)=>(b[1]?.wins||0)-(a[1]?.wins||0) || (b[1]?.score||0)-(a[1]?.score||0));
     const list=document.querySelector('#winsList');
-    if(list) list.innerHTML=sorted.map(([id,t])=>`<span class="win-pill">${SHORT[id]||id} 🏆${Number(t?.wins||0)}</span>`).join('');
+    const html=sorted.map(([id,t])=>`<span class="win-pill">${SHORT[id]||id} 🏆${Number(t?.wins||0)}</span>`).join('');
+    if(list && list.innerHTML!==html) list.innerHTML=html;
   }
 
   function tierFor(value){
@@ -220,5 +222,5 @@
   hookEvents();
   syncWins();
   const teams=document.querySelector('#teams');
-  if(teams) new MutationObserver(()=>{ensureWinBadges();syncWins();}).observe(teams,{childList:true,subtree:true});
+  if(teams) new MutationObserver(()=>{ensureWinBadges();syncWins();}).observe(teams,{childList:true,subtree:false});
 })();
