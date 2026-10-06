@@ -7,6 +7,7 @@
 <title>Taraftar Savaşı</title>
 <link rel="stylesheet" href="style.css"/>
 <link rel="stylesheet" href="kits.css"/>
+<link rel="stylesheet" href="enhancements.css"/>
 </head>
 <body>
 <div id="app">
@@ -42,7 +43,7 @@
     <footer>
       <div>💬 GS • FB • BJK • TS • AMED • BURSA • KŞP • KÖRFEZ</div>
       <div>👍 Her 200 beğeni = takımına +5 puan</div>
-      <div>🎁 Tanımsız hediyeler bile otomatik puana dönüşür</div>
+      <div>🎁 Hediye değeri yükseldikçe efekt ve puan gücü artar</div>
     </footer>
 
     <div id="fx"></div>
@@ -52,7 +53,7 @@
 
   <aside id="panel" class="panel hidden">
     <div class="panel-head">
-      <div><b>Yayın Kontrolü</b><small>Yalnızca sen görürsün; ekran paylaşımında kapat.</small></div>
+      <div><b>Yayın Kontrolü</b><small>Sağ tarafta açılır; oyun ekranının üstünü kapatmaz.</small></div>
       <button id="closePanel">✕</button>
     </div>
 
@@ -69,7 +70,7 @@
 
     <hr/>
     <b>Test Paneli</b>
-    <small>Canlıya bağlanmadan animasyonları dene.</small>
+    <small>Canlıya bağlanmadan hediye animasyonlarını dene.</small>
     <label>Takım</label>
     <select id="testTeam"></select>
     <label>Test kullanıcı adı</label>
@@ -78,11 +79,11 @@
       <button data-test="join">Takıma Katıl</button>
       <button data-test="like">+200 👍</button>
       <button data-gift="1">Gül / küçük</button>
-      <button data-gift="10">Gol hediyesi</button>
-      <button data-gift="50">Saldırı</button>
-      <button data-gift="250">Süper Gol</button>
-      <button data-gift="750">Krallık</button>
-      <button data-gift="2000">Stadyum Şovu</button>
+      <button data-gift="10">10 🪙 Mini</button>
+      <button data-gift="50">50 🪙 Orta</button>
+      <button data-gift="250">250 🪙 Büyük</button>
+      <button data-gift="750">750 🪙 Efsane</button>
+      <button data-gift="2000">2.000 🪙 Mega</button>
     </div>
   </aside>
 </div>
@@ -90,5 +91,6 @@
 <script src="app.js"></script>
 <script src="kits.js"></script>
 <script src="music.js"></script>
+<script src="enhancements.js"></script>
 </body>
 </html>
