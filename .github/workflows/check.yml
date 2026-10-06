@@ -1,0 +1,27 @@
+name: Kod Kontrolü
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu al
+        uses: actions/checkout@v4
+      - name: Node.js kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Paketleri kur
+        run: npm install
+      - name: JavaScript sözdizimini kontrol et
+        run: |
+          node --check server.js
+          node --check public/app.js
+          node --check public/kits.js
+          node --check public/music.js
+          node --check public/enhancements.js
