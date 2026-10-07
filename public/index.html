@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
 <meta name="theme-color" content="#07101d"/>
 <title>Taraftar Savaşı</title>
-<link rel="stylesheet" href="style.css?v=20261007-1"/>
-<link rel="stylesheet" href="kits.css?v=20261007-1"/>
-<link rel="stylesheet" href="enhancements.css?v=20261007-1"/>
-<link rel="stylesheet" href="round-ui.css?v=20261007-1"/>
+<link rel="stylesheet" href="style.css?v=20261007-2"/>
+<link rel="stylesheet" href="kits.css?v=20261007-2"/>
+<link rel="stylesheet" href="enhancements.css?v=20261007-2"/>
+<link rel="stylesheet" href="round-ui.css?v=20261007-2"/>
 </head>
 <body>
 <div id="app">
@@ -60,7 +60,7 @@
 
     <label>TikTok kullanıcı adın</label>
     <div class="row"><input id="ttUser" placeholder="@kullaniciadi"/><button id="connectBtn">Bağlan</button></div>
-    <div id="connStatus" class="status">Test modu</div>
+    <div id="connStatus" class="status">Sunucuya bağlanıyor...</div>
 
     <label>Tur süresi</label>
     <div class="row">
@@ -88,18 +88,11 @@
     </div>
   </aside>
 </div>
-<script>
-if (!location.hostname.endsWith('github.io')) {
-  const s=document.createElement('script');
-  s.src='/socket.io/socket.io.js';
-  s.async=false;
-  document.head.appendChild(s);
-}
-</script>
-<script src="app.js?v=20261007-1"></script>
-<script src="kits.js?v=20261007-1"></script>
-<script src="music.js?v=20261007-1"></script>
-<script src="enhancements.js?v=20261007-1"></script>
-<script src="round-ui.js?v=20261007-1"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js?v=20261007-2"></script>
+<script src="kits.js?v=20261007-2"></script>
+<script src="music.js?v=20261007-2"></script>
+<script src="enhancements.js?v=20261007-2"></script>
+<script src="round-ui.js?v=20261007-2"></script>
 </body>
 </html>
