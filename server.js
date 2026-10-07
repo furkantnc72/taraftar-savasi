@@ -11,6 +11,7 @@ app.use(express.json());
 app.get("/health", (_req,res)=>res.json({ok:true}));
 
 const PORT = process.env.PORT || 3000;
+const ROUND_CELEBRATION_MS = 35000;
 
 const TEAMS = {
   gs: { id:"gs", name:"Galatasaray" },
@@ -280,21 +281,21 @@ function finishRound(){
   const tied=ranking.filter(([,t])=>t.score===bestScore);
 
   if(bestScore<=0){
-    event({type:"round_end",team:null,user:"",points:0,title:"⏱️ Tur bitti • Bu tur puan çıkmadı."});
+    event({type:"round_end",team:null,user:"",points:0,celebrationMs:ROUND_CELEBRATION_MS,title:"⏱️ Tur bitti • Bu tur puan çıkmadı."});
   } else if(tied.length>1){
-    event({type:"round_end",team:null,user:"",points:0,title:`🤝 Tur berabere bitti: ${tied.map(([id])=>TEAMS[id].name).join(" • ")}`});
+    event({type:"round_end",team:null,user:"",points:0,celebrationMs:ROUND_CELEBRATION_MS,title:`🤝 Tur berabere bitti: ${tied.map(([id])=>TEAMS[id].name).join(" • ")}`});
   } else {
     const winner=tied[0][0];
     state.teams[winner].wins=(state.teams[winner].wins||0)+1;
     state.completedRounds=(state.completedRounds||0)+1;
     event({
-      type:"round_end",team:winner,user:"",points:0,wins:state.teams[winner].wins,
+      type:"round_end",team:winner,user:"",points:0,wins:state.teams[winner].wins,celebrationMs:ROUND_CELEBRATION_MS,
       title:`🏆 ${TEAMS[winner].name} TURU KAZANDI! • Toplam ${state.teams[winner].wins} galibiyet`
     });
   }
 
   io.emit("clock",{roundEndsAt:state.roundEndsAt});
-  autoResetTimer=setTimeout(()=>resetRound(state.roundMinutes,{fromAuto:true}),8000);
+  autoResetTimer=setTimeout(()=>resetRound(state.roundMinutes,{fromAuto:true}),ROUND_CELEBRATION_MS);
 }
 
 function resetWins(){
