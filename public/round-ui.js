@@ -10,11 +10,12 @@
     kocaeli:{name:'Kocaelispor',a:'#0b6c41',b:'#111111',code:'KÖRFEZ'}
   };
 
-  const CELEBRATION_MS=35000;
+  const DEFAULT_CELEBRATION_MS=35000;
   let latestState=null;
   let celebrationTimer=null;
   let countdownTimer=null;
   let confettiTimer=null;
+  let hookedSocket=null;
 
   function ensureWinsUi(){
     let board=document.querySelector('#winsBoard');
@@ -121,6 +122,8 @@
     if(!e?.team || !TEAM[e.team]) return;
     stopCelebration();
 
+    const duration=Math.max(5000,Number(e.celebrationMs||DEFAULT_CELEBRATION_MS));
+    const seconds=Math.ceil(duration/1000);
     const team=TEAM[e.team];
     const root=ensureCelebration();
     const score=Number(latestState?.teams?.[e.team]?.score||0);
@@ -141,7 +144,7 @@
         <div class="champion-score">${new Intl.NumberFormat('tr-TR').format(score)} PUAN</div>
         <div class="champion-win-count">TOPLAM <b>${wins}</b> TUR GALİBİYETİ</div>
         <div class="champion-message">TARAFTARLAR ZİRVEYİ ALDI!</div>
-        <div class="champion-next">Yeni tur <b id="championCountdown">35</b> saniye sonra</div>
+        <div class="champion-next">Yeni tur <b id="championCountdown">${seconds}</b> saniye sonra</div>
       </div>`;
 
     root.classList.add('show');
@@ -154,12 +157,12 @@
 
     const started=Date.now();
     countdownTimer=setInterval(()=>{
-      const left=Math.max(0,Math.ceil((CELEBRATION_MS-(Date.now()-started))/1000));
+      const left=Math.max(0,Math.ceil((duration-(Date.now()-started))/1000));
       const el=document.querySelector('#championCountdown');
       if(el) el.textContent=String(left);
     },250);
 
-    celebrationTimer=setTimeout(stopCelebration,CELEBRATION_MS);
+    celebrationTimer=setTimeout(stopCelebration,duration);
   }
 
   function onRoundEvent(e){
@@ -173,24 +176,28 @@
     }
   }
 
+  function hook(sock){
+    if(!sock || hookedSocket===sock) return;
+    hookedSocket=sock;
+    sock.on('state',renderWins);
+    sock.on('gameEvent',onRoundEvent);
+  }
+
   ensureWinsUi();
   try{ if(typeof state!=='undefined') renderWins(state); }catch{}
 
   if(typeof socket!=='undefined' && socket){
-    socket.on('state',renderWins);
-    socket.on('gameEvent',onRoundEvent);
+    hook(socket);
+  }else{
+    let tries=0;
+    const wait=setInterval(()=>{
+      tries++;
+      if(typeof socket!=='undefined' && socket){
+        clearInterval(wait);
+        hook(socket);
+      }else if(tries>20){
+        clearInterval(wait);
+      }
+    },250);
   }
-
-  // Socket sonradan oluşursa kısa süre kontrol et.
-  let tries=0;
-  const wait=setInterval(()=>{
-    tries++;
-    if(typeof socket!=='undefined' && socket){
-      clearInterval(wait);
-      socket.on('state',renderWins);
-      socket.on('gameEvent',onRoundEvent);
-    }else if(tries>20){
-      clearInterval(wait);
-    }
-  },250);
 })();
