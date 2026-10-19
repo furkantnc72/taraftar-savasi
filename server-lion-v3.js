@@ -30,5 +30,14 @@ src = src.replace(
     </g>`
 );
 
+const laneOld = '  const lanes=lions.map((lion,i)=>`<div class="lane"><div class="score" id="score${i}"><span>${lion.flag}</span><b>0</b></div>${lionSvg(lion,i)}</div>`).join("");';
+const laneNew = '  const lanes=lions.map((lion,i)=>`<div class="lane"><div class="score" id="score${i}">${lion.code==="KU"?`<span class="kurdMini"><i></i></span>`:`<span>${lion.flag}</span>`}<b>0</b></div>${lionSvg(lion,i)}</div>`).join("");';
+src = src.replace(laneOld, laneNew);
+
+src = src.replace(
+  '.score span{font-size:.9vh}.score b{font-size:1.08vh}',
+  '.score span{font-size:.9vh}.kurdMini{display:inline-block;position:relative;width:1.35vh;height:.85vh;border:.05vh solid #ffffff66;border-radius:.08vh;background:linear-gradient(#d71920 0 33%,#fff 33% 66%,#1f8f3a 66% 100%);overflow:hidden}.kurdMini i{position:absolute;left:50%;top:50%;width:.28vh;height:.28vh;border-radius:50%;background:#f6cf19;transform:translate(-50%,-50%);box-shadow:0 -.22vh 0 -.09vh #f6cf19,0 .22vh 0 -.09vh #f6cf19,.22vh 0 0 -.09vh #f6cf19,-.22vh 0 0 -.09vh #f6cf19}.score b{font-size:1.08vh}'
+);
+
 fs.writeFileSync(runtimePath, src, "utf8");
 await import(pathToFileURL(runtimePath).href + `?v=${Date.now()}`);
