@@ -54,9 +54,115 @@ src = src.replace(
   '.runner{position:absolute;left:18%;top:50%;width:32%;'
 );
 
+// 30-minute authoritative round timer on the server.
+src = src.replace(
+  'finishScore:FINISH_SCORE, lastGift:null, lastSelection:null, viewers:null',
+  'finishScore:FINISH_SCORE, roundEndsAt:Date.now()+30*60*1000, lastGift:null, lastSelection:null, viewers:null'
+);
+
+// Disable the old score-100 finish condition: timer decides the winner.
+src = src.replace(
+`  if(state.scores[lane]>=FINISH_SCORE){
+    state.scores[lane]=FINISH_SCORE; state.winner=lane;
+    io.emit("winner",{lane,lion:lions[lane],round:state.round});
+    clearTimeout(resetTimer); resetTimer=setTimeout(resetRound,RESET_DELAY);
+  }
+  push();`,
+`  push();`
+);
+
+src = src.replace(
+  'state.scores=[0,0,0,0,0]; state.winner=null; state.round+=1; state.lastGift=null;',
+  'state.scores=[0,0,0,0,0]; state.winner=null; state.round+=1; state.roundEndsAt=Date.now()+30*60*1000; state.lastGift=null;'
+);
+
+src = src.replace(
+  'async function disconnectLive(){',
+`function finishTimedRound(){
+  if(state.winner!==null) return;
+  const max=Math.max(...state.scores);
+  const leaders=[];
+  state.scores.forEach((v,i)=>{ if(v===max) leaders.push(i); });
+  const lane=leaders[Math.floor(Math.random()*leaders.length)] ?? 0;
+  state.winner=lane;
+  io.emit("winner",{lane,lion:lions[lane],round:state.round,timed:true});
+  push();
+  clearTimeout(resetTimer);
+  resetTimer=setTimeout(resetRound,RESET_DELAY);
+}
+setInterval(()=>{
+  if(state.winner===null && Date.now()>=state.roundEndsAt) finishTimedRound();
+},500);
+
+async function disconnectLive(){`
+);
+
+// Enlarge and adapt runner position to the current leader rather than score/100.
 src = src.replace(
   "document.getElementById('runner'+i).style.left=(17+Math.min(1,s.scores[i]/s.finishScore)*69)+'%'",
-  "document.getElementById('runner'+i).style.left=(18+Math.min(1,s.scores[i]/s.finishScore)*64)+'%'"
+  "const mx=Math.max(1,...s.scores);document.getElementById('runner'+i).style.left=(18+(s.scores[i]/mx)*64)+'%'"
+);
+
+// Timer + current leader music label.
+src = src.replace(
+  '.status.on{color:#77ff9e}',
+  '.status.on{color:#77ff9e}.timerBox{position:absolute;z-index:15;top:25.5%;left:50%;transform:translateX(-50%);min-width:36%;text-align:center;padding:.65vh 1.4vh;border-radius:1.2vh;background:linear-gradient(180deg,#111d,#020202e8);border:1px solid #ffffff2b;box-shadow:0 0 2vh #000}.timerBox .clock{font-size:3.25vh;font-weight:1000;letter-spacing:.08em;line-height:1;text-shadow:0 0 1.2vh #ffd25d55}.timerBox .musicNow{margin-top:.35vh;font-size:.82vh;font-weight:900;opacity:.9;white-space:nowrap}.timerBox .musicNow b{color:#ffd75f}'
+);
+
+src = src.replace(
+  '<div class="status" id="status">BEKLENİYOR</div><div class="arenaWrap">',
+  '<div class="status" id="status">BEKLENİYOR</div><div class="timerBox"><div class="clock" id="roundClock">30:00</div><div class="musicNow">🎵 LİDER: <b id="musicLeader">YARIŞ BAŞLIYOR</b></div></div><div class="arenaWrap">'
+);
+
+// Inject the 30-minute countdown and original WebAudio stadium tracks.
+src = src.replace(
+  "socket.on('state',draw);socket.on('selection'",
+`let lastState=null,currentLeader=-1,audioCtx=null,musicTimer=null,beatStep=0;
+const countryMusic=[
+  {name:'Tacikistan',bpm:154,root:57,scale:[0,2,3,7,9],pattern:[0,2,4,3,2,1,3,4]},
+  {name:'Türkiye',bpm:160,root:62,scale:[0,1,4,5,7,8,11],pattern:[0,2,4,3,5,4,2,1]},
+  {name:'Suudi Arabistan',bpm:150,root:55,scale:[0,1,4,5,7,8,10],pattern:[0,3,4,2,5,4,3,1]},
+  {name:'Kürdistan',bpm:158,root:59,scale:[0,2,3,5,7,9,10],pattern:[0,4,3,5,4,2,1,3]},
+  {name:'Azerbaycan',bpm:162,root:60,scale:[0,1,4,5,7,8,11],pattern:[0,4,2,5,3,4,1,6]}
+];
+function ensureAudio(){
+  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume().catch(()=>{});
+}
+function tone(freq,dur=.11,vol=.035,type='sawtooth'){
+  if(!audioCtx||audioCtx.state!=='running') return;
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(0.0001,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(vol,audioCtx.currentTime+.008);g.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+dur);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur+.02);
+}
+function kick(){
+  if(!audioCtx||audioCtx.state!=='running') return;
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.setValueAtTime(130,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(48,audioCtx.currentTime+.1);g.gain.setValueAtTime(.09,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+.12);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+.13);
+}
+function hat(){
+  if(!audioCtx||audioCtx.state!=='running') return;
+  const b=audioCtx.createBuffer(1,Math.floor(audioCtx.sampleRate*.035),audioCtx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);const s=audioCtx.createBufferSource(),f=audioCtx.createBiquadFilter(),g=audioCtx.createGain();s.buffer=b;f.type='highpass';f.frequency.value=6000;g.gain.value=.025;s.connect(f);f.connect(g);g.connect(audioCtx.destination);s.start();
+}
+function scheduleLeaderMusic(idx){
+  if(idx===currentLeader&&musicTimer) return;
+  currentLeader=idx;beatStep=0;clearInterval(musicTimer);musicTimer=null;
+  if(idx<0) return;
+  const m=countryMusic[idx];document.getElementById('musicLeader').textContent=m.name.toUpperCase();ensureAudio();
+  const tick=()=>{ensureAudio();const step=beatStep++%16;if(step%4===0)kick();if(step%2===1)hat();if(step%2===0){const n=m.scale[m.pattern[(step/2)%m.pattern.length]%m.scale.length];const midi=m.root+n+(step%8===6?12:0);tone(440*Math.pow(2,(midi-69)/12),.12,.032,step%4===0?'square':'sawtooth');if(step%8===0)tone(440*Math.pow(2,(midi-81)/12),.18,.016,'triangle');}};
+  tick();musicTimer=setInterval(tick,60000/m.bpm/2);
+}
+function updateRoundUi(s){
+  lastState=s;const left=Math.max(0,(s.roundEndsAt||Date.now())-Date.now()),sec=Math.ceil(left/1000),mm=String(Math.floor(sec/60)).padStart(2,'0'),ss=String(sec%60).padStart(2,'0');document.getElementById('roundClock').textContent=mm+':'+ss;
+  const max=Math.max(...s.scores),leaders=s.scores.map((v,i)=>v===max?i:-1).filter(i=>i>=0);const leader=max>0?leaders[0]:-1;scheduleLeaderMusic(leader);
+}
+setInterval(()=>{if(lastState)updateRoundUi(lastState)},250);
+addEventListener('pointerdown',ensureAudio,{once:false});
+addEventListener('keydown',ensureAudio,{once:false});
+const oldDraw=draw;draw=function(s){oldDraw(s);updateRoundUi(s)};
+socket.on('state',draw);socket.on('selection'`
+);
+
+src = src.replace(
+  "socket.on('roundReset',()=>{document.getElementById('winner').classList.remove('show');flash()});",
+  "socket.on('roundReset',()=>{document.getElementById('winner').classList.remove('show');currentLeader=-1;clearInterval(musicTimer);musicTimer=null;document.getElementById('musicLeader').textContent='YENİ TUR';flash()});"
 );
 
 fs.writeFileSync(runtimePath, src, "utf8");
