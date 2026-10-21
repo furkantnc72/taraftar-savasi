@@ -61,6 +61,67 @@ function patchRuntime(src){
 
   src = src.replace('.score b{font-size:1.35vh}', '.score b{font-size:1.5vh}.giftIcon{width:3.25vh;height:3.25vh;object-fit:contain;display:block;filter:drop-shadow(0 .15vh .18vh #000)}');
   src = src.replace('.score b{font-size:1.08vh}', '.score b{font-size:1.5vh}.giftIcon{width:3.25vh;height:3.25vh;object-fit:contain;display:block;filter:drop-shadow(0 .15vh .18vh #000)}');
+
+  // Lider ulkenin kullanicinin verdigi YouTube sarkisini calmasi icin gorunur resmi YouTube player.
+  src = src.replace(
+    '.timerBox .musicNow b{color:#ffd75f}',
+    '.timerBox .musicNow b{color:#ffd75f}.ytMusic{position:absolute;z-index:14;right:2.2%;top:17%;width:22%;aspect-ratio:16/9;border-radius:.65vh;overflow:hidden;background:#000;border:1px solid #ffffff30;box-shadow:0 0 1.2vh #000}.ytMusic iframe{width:100%!important;height:100%!important;display:block}'
+  );
+  src = src.replace(
+    '<div class="arenaWrap">',
+    '<div class="ytMusic"><div id="ytMusicPlayer"></div></div><div class="arenaWrap">'
+  );
+
+  const youtubeMusicCode = [
+    'let lastState=null,currentLeader=-1,ytPlayer=null,ytReady=false,pendingLeader=-1;',
+    'const countryMusic=[',
+    '  {name:"Tacikistan",video:"Ld5RxxY1qic"},',
+    '  {name:"Türkiye",video:"okQa7hl_xFM"},',
+    '  {name:"Suudi Arabistan",video:"cGxGTsj16YM"},',
+    '  {name:"Kürdistan",video:"78pp_LF46gY"},',
+    '  {name:"Azerbaycan",video:"WWnyBT4ORVM"}',
+    '];',
+    'function createYTPlayer(){',
+    '  if(ytPlayer || !window.YT || !YT.Player) return;',
+    '  ytPlayer=new YT.Player("ytMusicPlayer",{height:"100%",width:"100%",playerVars:{controls:1,rel:0,playsinline:1,modestbranding:1,autoplay:0},events:{',
+    '    onReady:()=>{ytReady=true;if(pendingLeader>=0)playLeaderMusic(pendingLeader,true);},',
+    '    onStateChange:e=>{if(e.data===YT.PlayerState.ENDED && currentLeader>=0){ytPlayer.seekTo(0,true);ytPlayer.playVideo();}}',
+    '  }});',
+    '}',
+    'function initYT(){',
+    '  if(window.YT&&YT.Player){createYTPlayer();return;}',
+    '  window.onYouTubeIframeAPIReady=createYTPlayer;',
+    '  if(!document.querySelector("script[data-yt-api]")){const s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";s.dataset.ytApi="1";document.head.appendChild(s);}',
+    '}',
+    'function playLeaderMusic(idx,force=false){',
+    '  pendingLeader=idx;',
+    '  if(idx<0){currentLeader=-1;document.getElementById("musicLeader").textContent="YARIŞ BAŞLIYOR";if(ytReady)ytPlayer.pauseVideo();return;}',
+    '  if(!force&&idx===currentLeader)return;',
+    '  currentLeader=idx;',
+    '  const m=countryMusic[idx];',
+    '  document.getElementById("musicLeader").textContent=m.name.toUpperCase();',
+    '  if(ytReady){ytPlayer.loadVideoById({videoId:m.video,startSeconds:0});ytPlayer.setVolume(100);ytPlayer.playVideo();}',
+    '}',
+    'function scheduleLeaderMusic(idx){playLeaderMusic(idx);}',
+    'initYT();',
+    'function updateRoundUi(s){'
+  ].join('\n');
+
+  src = src.replace(
+    /let lastState=null,currentLeader=-1,audioCtx=null,musicTimer=null,beatStep=0;[\s\S]*?function updateRoundUi\(s\)\{/,
+    youtubeMusicCode
+  );
+
+  src = src.replace(
+    "addEventListener('pointerdown',ensureAudio,{once:false});\naddEventListener('keydown',ensureAudio,{once:false});",
+    "addEventListener('pointerdown',()=>{if(ytReady&&currentLeader>=0)ytPlayer.playVideo()},{once:false});\naddEventListener('keydown',()=>{if(ytReady&&currentLeader>=0)ytPlayer.playVideo()},{once:false});"
+  );
+
+  src = src.replace(
+    "currentLeader=-1;clearInterval(musicTimer);musicTimer=null;document.getElementById('musicLeader').textContent='YENİ TUR';",
+    "currentLeader=-1;pendingLeader=-1;if(ytReady)ytPlayer.pauseVideo();document.getElementById('musicLeader').textContent='YENİ TUR';"
+  );
+
   return src;
 }
 
