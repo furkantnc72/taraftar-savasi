@@ -24,24 +24,15 @@ jobs:
         with:
           ref: dark-reds-download
 
-      - name: Install FFmpeg
+      - name: Install renderer dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg python3-pil python3-numpy fonts-dejavu-core
 
-      - name: Rebuild background image
+      - name: Render Manisa away Story edit
         run: |
-          cat dark-reds-assets/bg0.txt dark-reds-assets/bg_15000.txt dark-reds-assets/bg_20000.txt dark-reds-assets/bg_25000.txt dark-reds-assets/bg_30000.txt dark-reds-assets/bg_35000.txt dark-reds-assets/bg_40000.txt | base64 -d > /tmp/darkreds-bg.jpg
-          file /tmp/darkreds-bg.jpg
-
-      - name: Render 30 second Story video
-        run: |
-          mkdir -p public/download
-          ffmpeg -y -loop 1 -framerate 24 -i /tmp/darkreds-bg.jpg -t 30 \
-            -vf "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,zoompan=z='min(zoom+0.00022,1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=720x1280:fps=24,eq=contrast=1.05:saturation=1.10,fade=t=in:st=0:d=0.6,fade=t=out:st=29:d=1" \
-            -an -c:v libx264 -profile:v main -level 3.1 -pix_fmt yuv420p -preset medium -crf 22 -movflags +faststart \
-            public/download/dark-reds.mp4
-          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 public/download/dark-reds.mp4
+          python3 dark-reds-assets/render_deplasman.py
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,width,height -of default=noprint_wrappers=1 public/download/dark-reds.mp4
 
       - name: Commit rendered video
         run: |
@@ -49,6 +40,6 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add public/download/dark-reds.mp4
           if ! git diff --cached --quiet; then
-            git commit -m "Build Dark Reds story video [skip ci]"
+            git commit -m "Build Manisa away story edit [skip ci]"
             git push origin dark-reds-download
           fi
