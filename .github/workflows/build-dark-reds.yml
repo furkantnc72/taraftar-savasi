@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: dark-reds-video
+  cancel-in-progress: true
+
 jobs:
   build-video:
     runs-on: ubuntu-latest
