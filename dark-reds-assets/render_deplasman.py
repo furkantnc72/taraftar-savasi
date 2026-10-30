@@ -1,245 +1,236 @@
-from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
-import math, random, subprocess, os, wave, urllib.request, io
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import math, random, subprocess, os, wave
 import numpy as np
 
-W,H,FPS,DUR=540,960,24,30
+W,H,FPS,DUR=540,960,24,60
 N=FPS*DUR
 FONT='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
-REG='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
-ASSET='/tmp/darkreds_real'
-os.makedirs(ASSET,exist_ok=True)
-os.makedirs('public/download',exist_ok=True)
+RED=(214,16,28)
+WHITE=(245,245,245)
 
-URLS={
- 'batman':'https://www.batman.bel.tr/upload/haber/batman-belediyesi-20260217132454-4013.jpeg',
- 'fans':'https://urfanatikcom.teimg.com/crop/1280x720/urfanatik-com/uploads/2026/03/sanliurfaspor-maci-oncesi-batman-petrolsporda-kirmizi-alarm-2.jpg',
- 'stadium':'https://www.europlan-online.de/files/c82581ef459e4ae77456a2df542a6369.jpg',
- 'bus':'https://i.imgur.com/NlooZmz.jpg'
-}
 
-def fetch(name,url):
-    path=f'{ASSET}/{name}.jpg'
-    try:
-        req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0'})
-        with urllib.request.urlopen(req,timeout=25) as r: data=r.read()
-        Image.open(io.BytesIO(data)).convert('RGB').save(path,quality=92)
-    except Exception as e:
-        print('download failed',name,e)
-        Image.new('RGB',(1280,720),(12,12,14)).save(path)
-    return path
+def F(s):
+    return ImageFont.truetype(FONT,s)
 
-paths={k:fetch(k,v) for k,v in URLS.items()}
-source={k:Image.open(p).convert('RGB') for k,p in paths.items()}
+def fit_font(draw,s,size,maxw,sw=3):
+    f=F(size)
+    while draw.textbbox((0,0),s,font=f,stroke_width=sw)[2] > maxw and size>16:
+        size-=2
+        f=F(size)
+    return f
 
-def font(sz,bold=True): return ImageFont.truetype(FONT if bold else REG,sz)
+def center_text(draw,y,s,size,color=WHITE,stroke=4,maxw=500):
+    f=fit_font(draw,s,size,maxw,stroke)
+    b=draw.textbbox((0,0),s,font=f,stroke_width=stroke)
+    x=(W-(b[2]-b[0]))/2
+    draw.text((x,y),s,font=f,fill=color,stroke_width=stroke,stroke_fill='black')
 
-def fit_crop(im,scale=1.0,ox=0.5,oy=0.5):
-    iw,ih=im.size
-    s=max(W/iw,H/ih)*scale
-    nw,nh=max(W,int(iw*s)),max(H,int(ih*s))
-    r=im.resize((nw,nh),Image.Resampling.LANCZOS)
-    maxx=max(0,nw-W); maxy=max(0,nh-H)
-    x=int(maxx*max(0,min(1,ox))); y=int(maxy*max(0,min(1,oy)))
-    return r.crop((x,y,x+W,y+H))
+yy,xx=np.ogrid[:H,:W]
+VIGN=np.clip(1-.82*(((xx-W/2)/(W/1.02))**2+((yy-H/2)/(H/1.18))**2),.18,1).astype(np.float32)
 
-def grade(im,red=1.0,dark=.74,contrast=1.28,sat=.55):
-    im=ImageEnhance.Color(im).enhance(sat)
-    im=ImageEnhance.Contrast(im).enhance(contrast)
-    a=np.asarray(im).astype(np.float32)
-    a[:,:,0]*=red
-    a*=dark
-    # lift tiny amount of red in shadows, crush blues
-    a[:,:,0]+=6
-    a[:,:,2]*=.82
-    return Image.fromarray(np.clip(a,0,255).astype(np.uint8))
+def bg(red=28):
+    y=np.linspace(0,1,H)[:,None]
+    r=(12+red*(0.18+0.82*y)).astype(np.uint8)
+    g=(6+9*(1-y)).astype(np.uint8)
+    b=(8+12*(1-y)).astype(np.uint8)
+    arr=np.zeros((H,W,3),dtype=np.uint8)
+    arr[:,:,0]=np.repeat(r,W,1)
+    arr[:,:,1]=np.repeat(g,W,1)
+    arr[:,:,2]=np.repeat(b,W,1)
+    return Image.fromarray(arr)
 
 def vignette(im):
-    a=np.asarray(im).astype(np.float32)
-    yy,xx=np.ogrid[:H,:W]
-    dx=(xx-W/2)/(W/2); dy=(yy-H/2)/(H/2)
-    m=np.clip(1-.68*(dx*dx+dy*dy),.28,1).astype(np.float32)
-    a*=m[...,None]
+    a=np.asarray(im,np.float32)
+    a*=VIGN[:,:,None]
     return Image.fromarray(np.clip(a,0,255).astype(np.uint8))
 
-def grain(im,seed,amt=10):
-    rng=np.random.default_rng(seed)
-    a=np.asarray(im).astype(np.int16)
-    g=rng.normal(0,amt,(H,W,1)).astype(np.int16)
-    a=np.clip(a+g,0,255).astype(np.uint8)
+def grain(im,t):
+    rng=np.random.default_rng(int(t*1000)+123)
+    a=np.asarray(im,np.int16)
+    n=rng.integers(-8,9,size=(H,W,1),dtype=np.int16)
+    a=np.clip(a+n,0,255).astype(np.uint8)
     return Image.fromarray(a)
 
-def txt(im, text, y, size, color=(245,245,245), stroke=4, maxw=500, spacing=0, bold=True):
-    d=ImageDraw.Draw(im)
-    f=font(size,bold)
-    while d.textbbox((0,0),text,font=f,stroke_width=stroke)[2]>maxw and size>18:
-        size-=2; f=font(size,bold)
-    b=d.textbbox((0,0),text,font=f,stroke_width=stroke)
-    x=(W-(b[2]-b[0]))/2
-    # shadow
-    d.text((x+5,y+7),text,font=f,fill=(0,0,0),stroke_width=stroke+2,stroke_fill=(0,0,0))
-    d.text((x,y),text,font=f,fill=color,stroke_width=stroke,stroke_fill=(5,5,5))
+def red_flash(im,amt=.25):
+    return Image.blend(im,Image.new('RGB',(W,H),(150,0,10)),amt)
 
-def red_flash(im,strength=.35):
-    return Image.blend(im,Image.new('RGB',(W,H),(150,0,8)),strength)
-
-def photo_scene(key,t,dur,zoom0=1.00,zoom1=1.12,panx=(.5,.5),pany=(.5,.5),red=1.08,dark=.68,sat=.55):
-    z=zoom0+(zoom1-zoom0)*(t/dur)
-    ox=panx[0]+(panx[1]-panx[0])*(t/dur)
-    oy=pany[0]+(pany[1]-pany[0])*(t/dur)
-    im=fit_crop(source[key],z,ox,oy)
-    im=grade(im,red=red,dark=dark,contrast=1.32,sat=sat)
-    return vignette(im)
-
-def intro(t):
-    im=Image.new('RGB',(W,H),(1,1,2)); d=ImageDraw.Draw(im)
-    # faint red haze and vertical scratch
-    d.rectangle((0,690,W,H),fill=(18,0,3))
+def smoke(draw,t):
+    rng=random.Random(44+int(t*10))
     for i in range(14):
-        x=(i*43+int(t*17))%W
-        d.line((x,0,x+random.Random(i).randint(-4,4),H),fill=(10,10,11),width=1)
-    if t<.35: pass
+        x=rng.randint(-80,W+80)
+        y=560+rng.randint(-60,280)
+        r=rng.randint(45,120)
+        c=40+rng.randint(0,30)
+        draw.ellipse((x-r,y-r,x+r,y+r),fill=(c,int(c*0.15),int(c*0.15)))
+
+def light_beams(draw):
+    for x in [90,180,360,450]:
+        draw.polygon([(x,110),(x+18,110),(x+95,H),(x-55,H)],fill=(45,12,16))
+
+def center_text_local(draw,cx,y,s,size,color=WHITE,stroke=3,maxw=200):
+    f=fit_font(draw,s,size,maxw,stroke)
+    b=draw.textbbox((0,0),s,font=f,stroke_width=stroke)
+    draw.text((cx-(b[2]-b[0])/2,y),s,font=f,fill=color,stroke_width=stroke,stroke_fill='black')
+
+def draw_crest(draw,x,y,scale=1.0,mode='team'):
+    w=int(120*scale); h=int(140*scale)
+    draw.ellipse((x-w//2,y-h//2,x+w//2,y+h//2),fill=(25,25,28),outline=WHITE,width=max(2,int(4*scale)))
+    draw.ellipse((x-w//2+8,y-h//2+8,x+w//2-8,y+h//2-8),outline=RED,width=max(2,int(4*scale)))
+    if mode=='team':
+        draw.rectangle((x-7*scale,y-30*scale,x+7*scale,y+26*scale),fill=WHITE)
+        draw.line((x,y-26*scale,x+22*scale,y-5*scale),fill=WHITE,width=max(2,int(4*scale)))
+        draw.line((x,y+4*scale,x+26*scale,y+20*scale),fill=WHITE,width=max(2,int(4*scale)))
+        f=F(max(10,int(14*scale)))
+        b=draw.textbbox((0,0),'1960',font=f)
+        draw.text((x-(b[2]-b[0])/2,y+h*0.22),'1960',font=f,fill=WHITE)
     else:
-        txt(im,'YARIN',330,92,(240,240,240),5)
-        txt(im,'DEPLASMAN GECESİ',455,30,(180,180,180),2)
-    if .9<t<1.02 or 2.15<t<2.25: im=red_flash(im,.42)
-    return grain(vignette(im),int(t*1000)+1,6)
+        pts=[(x,y-48*scale),(x+40*scale,y-16*scale),(x+30*scale,y+48*scale),(x,y+64*scale),(x-30*scale,y+48*scale),(x-40*scale,y-16*scale)]
+        draw.polygon(pts,fill=(12,12,14),outline=WHITE)
+        f=F(max(15,int(20*scale)))
+        b=draw.textbbox((0,0),'DR',font=f)
+        draw.text((x-(b[2]-b[0])/2,y-12*scale),'DR',font=f,fill=RED,stroke_width=2,stroke_fill='black')
 
-def batman(t):
-    im=photo_scene('batman',t,4,1.02,1.18,(.42,.58),(.50,.54),red=1.18,dark=.58,sat=.44)
-    d=ImageDraw.Draw(im,'RGB'); d.rectangle((0,0,W,210),fill=(0,0,0))
-    txt(im,'BATMAN',50,63,(235,235,235),4)
-    txt(im,'GECE BAŞLIYOR',123,31,(210,25,32),2)
-    txt(im,'BİR ŞEHİR UYUR',790,28,(185,185,185),2)
-    txt(im,'BİZ YOLA ÇIKARIZ',830,35,(245,245,245),3)
-    if t<.10: im=red_flash(im,.5)
-    return grain(im,int(t*1000)+20,9)
+def draw_bus(draw,x,y,kind='team',scale=1.0):
+    bw=int(330*scale); bh=int(125*scale)
+    base=(18,18,22) if kind=='team' else (12,12,16)
+    draw.rounded_rectangle((x,y,x+bw,y+bh),radius=int(22*scale),fill=base,outline=RED,width=max(2,int(4*scale)))
+    draw.polygon([(x+bw-15*scale,y+35*scale),(x+bw+25*scale,y+50*scale),(x+bw+25*scale,y+95*scale),(x+bw-15*scale,y+100*scale)],fill=base,outline=RED)
+    for i in range(6):
+        wx=x+22*scale+i*44*scale
+        draw.rectangle((wx,y+20*scale,wx+34*scale,y+54*scale),fill=(55,8,14),outline=(120,20,25))
+    for i in range(2):
+        wheelx=x+60*scale+i*180*scale
+        draw.ellipse((wheelx,y+95*scale,wheelx+45*scale,y+140*scale),fill=(5,5,6),outline=(120,120,120))
+    draw.rectangle((x+18*scale,y+70*scale,x+bw-22*scale,y+88*scale),fill=RED)
+    if kind=='team':
+        center_text_local(draw,x+bw*0.52,y+67*scale,'BATMAN PETROLSPOR',int(18*scale),WHITE,int(2*scale),int(bw*0.72))
+        draw_crest(draw,int(x+48*scale),int(y+62*scale),0.34*scale,'team')
+    else:
+        center_text_local(draw,x+bw*0.54,y+67*scale,'DARK REDS',int(24*scale),WHITE,int(2*scale),int(bw*0.6))
+        draw_crest(draw,int(x+52*scale),int(y+62*scale),0.34*scale,'dark')
 
-def bus(t):
-    im=photo_scene('bus',t,5,1.12,1.32,(.58,.44),(.52,.52),red=1.10,dark=.55,sat=.38)
-    # cover coach branding with a dark supporter placard
-    d=ImageDraw.Draw(im)
-    d.rounded_rectangle((205,420,410,515),radius=12,fill=(8,8,10),outline=(120,8,16),width=3)
-    f=font(27); d.text((228,448),'DARK REDS',font=f,fill=(235,235,235),stroke_width=2,stroke_fill='black')
-    txt(im,'YOL UZUN',94,48,(240,240,240),4)
-    txt(im,'SEVDA DAHA BÜYÜK',151,34,(215,22,30),3)
-    txt(im,'BATMAN  •  MANİSA',838,29,(225,225,225),2)
-    if t<.10 or 2.1<t<2.18: im=red_flash(im,.38)
-    return grain(im,int(t*1000)+60,10)
+def scene_intro(t):
+    im=bg(36); d=ImageDraw.Draw(im); light_beams(d)
+    for i in range(9):
+        y=int((i*120+t*90)%(H+150))-80
+        d.polygon([(-80,y),(W+60,y+45),(W+60,y+60),(-80,y+18)],fill=(50,0,6))
+    smoke(d,t); draw_crest(d,W//2,280,1.05,'dark')
+    center_text(d,390,'DARK REDS',78,RED)
+    center_text(d,490,'İSTANBUL ÇIKIŞLI',44)
+    center_text(d,548,'DEPLASMAN GECESİ',38,(220,220,220))
+    center_text(d,760,'YOL UZUN',48)
+    center_text(d,820,'SEVDA DAHA BÜYÜK',42,RED)
+    if t<0.14 or 2.2<t<2.36 or 4.2<t<4.36: im=red_flash(im,.4)
+    return im
 
-def fans1(t):
-    im=photo_scene('fans',t,5,1.08,1.28,(.52,.48),(.48,.44),red=1.18,dark=.56,sat=.48)
-    txt(im,'SESSİZ GELMEYİZ',72,39,(245,245,245),3)
-    txt(im,'DARK REDS',122,62,(225,20,28),4)
-    txt(im,'HER YERDE',800,33,(205,205,205),2)
-    txt(im,'PETROLSPOR',842,42,(245,245,245),3)
-    if t<.10 or 3.65<t<3.75: im=red_flash(im,.45)
-    return grain(im,int(t*1000)+110,12)
+def scene_istanbul(t):
+    im=bg(24); d=ImageDraw.Draw(im); d.rectangle((0,0,W,360),fill=(8,10,14))
+    buildings=[(20,120,60,360),(75,160,120,360),(145,140,185,360),(205,100,250,360),(270,180,320,360),(345,150,390,360),(420,110,470,360),(485,175,530,360)]
+    for a,b,c,e in buildings: d.rectangle((a,b,c,e),fill=(12,12,15))
+    d.rectangle((255,80,270,250),fill=(14,14,16)); d.ellipse((235,42,290,95),outline=(25,25,28),width=4)
+    d.polygon([(110,H),(430,H),(300,375),(240,375)],fill=(17,17,19)); d.line((110,H,240,375),fill=(115,18,22),width=5); d.line((430,H,300,375),fill=(115,18,22),width=5)
+    phase=(t*1.8)%1
+    for k in range(11):
+        z=(k+phase)/11; y=int(390+(z**1.8)*(H-390)); w=int(2+z*12); l=int(12+z*48)
+        d.polygon([(W//2-w,y),(W//2+w,y),(W//2+w*2,y+l),(W//2-w*2,y+l)],fill=(220,220,220))
+    for i,x in enumerate([130,170,380,420]):
+        yy=640+i*25; d.ellipse((x,yy,x+14,yy+10),fill=(255,180,120)); d.ellipse((x+18,yy,x+32,yy+10),fill=(255,180,120))
+    center_text(d,70,'İSTANBUL’DAN',52); center_text(d,128,'YOLA ÇIKIYORUZ',52,RED)
+    center_text(d,740,'GECE UZUN',48); center_text(d,805,'DEPLASMAN BAŞLADI',36,(225,225,225))
+    return im
 
-def stadium(t):
-    im=photo_scene('stadium',t,5,1.03,1.20,(.45,.55),(.46,.48),red=1.10,dark=.58,sat=.42)
-    txt(im,'MANİSA',76,58,(242,242,242),4)
-    txt(im,'19 MAYIS',142,33,(210,25,31),2)
-    txt(im,'IŞIKLAR YANIYOR',800,31,(190,190,190),2)
-    txt(im,'BİZ GELİYORUZ',838,39,(245,245,245),3)
-    if t<.10: im=red_flash(im,.44)
-    return grain(im,int(t*1000)+160,9)
+def scene_buses(t):
+    im=bg(26); d=ImageDraw.Draw(im); d.rectangle((0,0,W,430),fill=(10,10,12))
+    for i in range(18):
+        x=i*35; h=50+(i*37)%160; d.rectangle((x,430-h,x+28,430),fill=(9,9,11))
+    d.rectangle((0,430,W,H),fill=(14,14,17)); draw_bus(d,45,480,'supporter',1.15); draw_bus(d,125,330,'team',0.8)
+    d.rounded_rectangle((30,100,240,150),radius=14,fill=(20,20,23),outline=RED,width=3); center_text_local(d,135,110,'TARAFTAR OTOBÜSÜ',24)
+    d.rounded_rectangle((300,150,500,196),radius=14,fill=(20,20,23),outline=RED,width=3); center_text_local(d,400,158,'TAKIM OTOBÜSÜ',22)
+    center_text(d,780,'AYNI YOL',44); center_text(d,835,'AYNI RENKLER',44,RED)
+    return im
 
-def matchcard(t):
-    im=photo_scene('stadium',min(t,3),4,1.18,1.25,(.50,.50),(.49,.49),red=1.08,dark=.36,sat=.32)
-    overlay=Image.new('RGBA',(W,H),(0,0,0,120)); im=Image.alpha_composite(im.convert('RGBA'),overlay).convert('RGB')
-    d=ImageDraw.Draw(im)
-    d.rounded_rectangle((28,230,W-28,730),radius=26,fill=(4,4,6),outline=(120,10,18),width=3)
-    txt(im,'31 EKİM 2026',278,30,(190,190,190),2)
-    txt(im,'19:00',320,67,(245,245,245),4)
-    d.line((95,415,W-95,415),fill=(105,10,17),width=3)
-    txt(im,'MANİSA FK',452,42,(230,230,230),3)
-    txt(im,'VS',510,30,(180,20,28),2)
-    txt(im,'BATMAN PETROLSPOR',557,34,(245,245,245),3)
-    txt(im,'DEPLASMAN',650,30,(210,22,29),2)
-    if t<.10: im=red_flash(im,.46)
-    return grain(vignette(im),int(t*1000)+210,8)
+def scene_convoy(t):
+    im=bg(18); d=ImageDraw.Draw(im); d.rectangle((0,0,W,310),fill=(6,7,10))
+    for j in range(12):
+        y=310+j*10; d.rectangle((0,y,W,y+8),fill=(20+j*3,4,8))
+    d.polygon([(100,H),(440,H),(315,320),(225,320)],fill=(11,11,13)); d.line((100,H,225,320),fill=(110,15,18),width=5); d.line((440,H,315,320),fill=(110,15,18),width=5)
+    phase=(t*2.0)%1
+    for k in range(12):
+        z=(k+phase)/12; y=int(335+(z**1.9)*(H-335)); w=int(3+z*10); L=int(12+z*55)
+        d.polygon([(W//2-w,y),(W//2+w,y),(W//2+w*2,y+L),(W//2-w*2,y+L)],fill=(245,245,235))
+    for cx in [190,260,330]:
+        yy=int(600+(math.sin(t*3+cx)*8)); d.ellipse((cx,yy,cx+16,yy+10),fill=(255,190,100)); d.ellipse((cx+22,yy,cx+38,yy+10),fill=(255,190,100))
+    center_text(d,84,'KONVOY HAREKETTE',46); center_text(d,150,'DURMAK YOK',44,RED)
+    center_text(d,780,'İSTANBUL > MANİSA',38); center_text(d,830,'DARK REDS YOLDA',34,(220,220,220))
+    return im
 
-def final(t):
-    im=photo_scene('fans',t,4,1.20,1.38,(.50,.47),(.47,.43),red=1.25,dark=.42,sat=.42)
-    d=ImageDraw.Draw(im)
-    d.rectangle((0,0,W,H),fill=(0,0,0,0))
-    txt(im,'DARK REDS',135,68,(225,18,26),5)
-    txt(im,'MANİSA’DA',215,54,(245,245,245),4)
-    txt(im,'BİZ GELİYORUZ.',720,43,(245,245,245),3)
-    txt(im,'BATMAN PETROLSPOR',786,27,(185,185,185),2)
-    if t<.12 or 1.7<t<1.82: im=red_flash(im,.5)
-    if t>3.35:
-        im=Image.blend(im,Image.new('RGB',(W,H),'black'),min(1,(t-3.35)/.65))
-    return grain(vignette(im),int(t*1000)+260,13)
+def scene_match(t):
+    im=bg(30); d=ImageDraw.Draw(im); light_beams(d); smoke(d,t)
+    d.rounded_rectangle((38,225,W-38,705),radius=26,fill=(8,8,12),outline=RED,width=4)
+    draw_crest(d,120,330,0.52,'team'); draw_crest(d,120,590,0.52,'dark')
+    center_text_local(d,302,260,'MANİSA FK',44); center_text_local(d,302,330,'BATMAN PETROLSPOR',36)
+    center_text_local(d,302,430,'31 EKİM 2026',36,(225,225,225)); center_text_local(d,302,495,'19:00',70,RED)
+    center_text_local(d,302,585,'MANİSA 19 MAYIS',34); center_text_local(d,302,635,'DEPLASMAN GECESİ',34,(225,225,225))
+    center_text(d,790,'KORKU DEĞİL',40); center_text(d,840,'İNANÇ GETİRİYORUZ',38,RED)
+    return im
 
-SCENES=[(0,3,intro),(3,7,batman),(7,12,bus),(12,17,fans1),(17,22,stadium),(22,26,matchcard),(26,30,final)]
+def scene_crowd(t):
+    im=bg(38); d=ImageDraw.Draw(im); smoke(d,t)
+    for x in [50,140,400,490]:
+        d.line((x,80,x,300),fill=(90,90,95),width=5); d.ellipse((x-24,50,x+24,98),fill=(220,220,215))
+    for i in range(27):
+        x=i*21-12; y=680+((i*43)%85); d.ellipse((x,y-38,x+24,y-14),fill=(5,5,7)); d.polygon([(x-10,y+72),(x+34,y+72),(x+24,y-12),(x,y-12)],fill=(5,5,7))
+    for j,(x,sgn) in enumerate([(92,1),(260,-1),(440,1)]):
+        d.line((x,380,x+sgn*24,780),fill=(150,150,150),width=5); wob=18*math.sin(t*4+j)
+        d.polygon([(x,390),(x+sgn*120,410+wob),(x+sgn*105,528-wob),(x+sgn*8,510)],fill=(210,15,25))
+    d.rounded_rectangle((95,180,445,240),radius=10,fill=(80,10,15),outline='white',width=3); center_text_local(d,270,192,'DARK REDS',34)
+    center_text(d,770,'TRİBÜN HAZIR',44); center_text(d,825,'ŞİMDİ SIRA BİZDE',38,RED)
+    return im
+
+def scene_finale(t):
+    im=bg(42); d=ImageDraw.Draw(im); smoke(d,t)
+    for i in range(10):
+        y=int((i*120+t*110)%(H+130))-65; d.polygon([(-60,y),(W+70,y+42),(W+70,y+60),(-60,y+22)],fill=(65,0,8))
+    draw_crest(d,W//2,280,1.12,'dark'); center_text(d,420,'DARK REDS',72,RED); center_text(d,510,'MANİSA’YA GELİYOR',40)
+    center_text(d,760,'İSTANBUL ÇIKIŞLI',42); center_text(d,820,'BİZ GELİYORUZ',52,RED)
+    if t>3.0: im=Image.blend(im,Image.new('RGB',(W,H),'black'),min(1,(t-3.0)/1.0))
+    return im
+
+SCENES=[(0,8,scene_intro),(8,18,scene_istanbul),(18,28,scene_buses),(28,38,scene_convoy),(38,48,scene_match),(48,56,scene_crowd),(56,60,scene_finale)]
 
 def frame(t):
     for s,e,fn in SCENES:
         if s<=t<e:
             im=fn(t-s)
-            # hard black flash on cuts, more cinematic than cartoon transitions
-            local=t-s
-            if s>0 and local<.045: return Image.new('RGB',(W,H),'black')
-            return im
-    return final(4)
+            if t-s<0.10 and s>0: im=red_flash(im,0.38*(1-(t-s)/0.10))
+            return grain(vignette(im),t)
+    return grain(vignette(scene_finale(3)),t)
 
-# Encode silent video
-p=subprocess.Popen(['ffmpeg','-y','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W}x{H}','-r',str(FPS),'-i','-','-an','-c:v','libx264','-preset','veryfast','-profile:v','baseline','-level','3.1','-pix_fmt','yuv420p','-crf','24','-maxrate','1300k','-bufsize','2600k','-movflags','+faststart','/tmp/dr_silent.mp4'],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+os.makedirs('public/download',exist_ok=True)
+p=subprocess.Popen(['ffmpeg','-y','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W}x{H}','-r',str(FPS),'-i','-','-an','-c:v','libx264','-preset','veryfast','-profile:v','baseline','-level','3.1','-pix_fmt','yuv420p','-crf','26','-maxrate','1100k','-bufsize','2200k','-movflags','+faststart','/tmp/dr_silent.mp4'],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 for i in range(N): p.stdin.write(np.asarray(frame(i/FPS),np.uint8).tobytes())
 p.stdin.close(); p.wait()
 
-# Dark cinematic sound design: sub drone, road rumble, metallic hits, whooshes, crowd bed, final bass drop
-sr=44100; n=DUR*sr; tt=np.arange(n,dtype=np.float32)/sr
-a=np.zeros(n,np.float32)
-# low ominous drone
-a += .024*np.sin(2*np.pi*42*tt)*(0.72+0.28*np.sin(2*np.pi*.11*tt))
-a += .010*np.sin(2*np.pi*63*tt)
-rng=np.random.default_rng(20261031)
-# road/air bed
-noise=rng.normal(0,1,n).astype(np.float32)
-low=np.convolve(noise,np.ones(180,dtype=np.float32)/180,mode='same')
-a += .035*low
-# engine rumble 7-12 sec
-m=(tt>=7)&(tt<12)
-a[m] += .045*np.sin(2*np.pi*(72+3*np.sin(2*np.pi*.25*tt[m]))*tt[m])
-# stadium crowd-like bed 12-30: band-limited turbulent noise with slow swell
-crowd=noise-np.convolve(noise,np.ones(28,dtype=np.float32)/28,mode='same')
-env=np.clip((tt-12)/4,0,1)*np.clip((31-tt)/2,0,1)
-env*=.55+.45*(np.sin(2*np.pi*.38*tt)**2)
-a += .025*crowd*env
-# rhythmic distant chant pulse from 18s
-m=(tt>=18)&(tt<29.4)
-chant=(.5+.5*np.sign(np.sin(2*np.pi*1.28*tt[m])))
-a[m]+=chant*.006*(np.sin(2*np.pi*185*tt[m])+np.sin(2*np.pi*233*tt[m]))
-# cinematic impacts and metal tails
-cuts=[0,3,7,12,17,22,26]
-for j,st in enumerate(cuts):
-    ix=int(st*sr); L=min(int(.82*sr),n-ix)
-    z=np.arange(L,dtype=np.float32)/sr
-    sub=.32*np.sin(2*np.pi*(58-34*z)*z)*np.exp(-z*7.2)
-    metal=.045*(np.sin(2*np.pi*680*z)+.6*np.sin(2*np.pi*1030*z))*np.exp(-z*9)
-    a[ix:ix+L]+=sub+metal
-# whoosh before scene changes
-for j,st in enumerate(cuts[1:]):
-    start=max(0,st-.48); ix=int(start*sr); L=min(int(.48*sr),n-ix)
-    z=np.arange(L,dtype=np.float32)/sr
-    w=rng.normal(0,1,L).astype(np.float32)
-    w=np.concatenate(([0],np.diff(w)))
-    envw=np.linspace(0,1,L,dtype=np.float32)**2
-    a[ix:ix+L]+=.018*w*envw
-# kick/percussion only after reveal, sparse and heavy
-for st in np.arange(12.5,29.0,0.75):
-    ix=int(st*sr); L=min(int(.24*sr),n-ix)
-    z=np.arange(L,dtype=np.float32)/sr
-    a[ix:ix+L]+=.14*np.sin(2*np.pi*(78-50*z)*z)*np.exp(-z*18)
-# final giant boom at 26 and silence tail
-ix=int(26*sr); L=min(int(1.2*sr),n-ix); z=np.arange(L)/sr
-a[ix:ix+L]+=.23*np.sin(2*np.pi*(45-20*z)*z)*np.exp(-z*4.8)
-a[-int(.75*sr):]*=np.linspace(1,0,int(.75*sr))
-a=np.tanh(a*1.7)*.82
+sr=44100; n=DUR*sr; tt=np.arange(n)/sr; a=np.zeros(n,np.float32)
+for f,amp in [(44,0.05),(57,0.035),(83,0.018)]: a += amp*np.sin(2*np.pi*f*tt)
+pulse=(np.sin(2*np.pi*1.12*tt)>0).astype(np.float32); a += 0.03*np.sin(2*np.pi*66*tt)*(0.45+0.55*pulse)
+bpm=118; beat=60/bpm
+for k in range(int(DUR/beat)+2):
+    ix=int(k*beat*sr); L=min(int(0.28*sr),n-ix)
+    if L<=0: break
+    z=np.arange(L)/sr; a[ix:ix+L] += 0.22*np.sin(2*np.pi*(85-38*z)*z)*np.exp(-z*17)
+    if k%2==0:
+        L2=min(int(0.18*sr),n-ix); z2=np.arange(L2)/sr; noise=np.random.default_rng(1000+k).normal(0,1,L2)
+        a[ix:ix+L2] += 0.05*noise*np.exp(-z2*24)
+for st in [0,8,18,28,38,48,56]:
+    ix=int(st*sr); L=min(int(0.9*sr),n-ix); z=np.arange(L)/sr
+    a[ix:ix+L] += (0.20*np.sin(2*np.pi*(42+6*np.sin(2*np.pi*2*z))*z) + 0.04*np.random.default_rng(200+st).normal(0,1,L))*np.exp(-z*5)
+road=np.random.default_rng(77).normal(0,1,n).astype(np.float32); road=np.convolve(road,np.ones(240)/240,mode='same')
+a[int(8*sr):int(38*sr)] += 0.018*road[int(8*sr):int(38*sr)]
+chant=(np.sin(2*np.pi*2.2*tt)+0.4*np.sin(2*np.pi*4.4*tt))*0.015; a[int(38*sr):] += chant[int(38*sr):]
+fin=int(56*sr); a[fin:] += 0.05*np.sin(2*np.pi*39*tt[fin:])
+fade=int(2.0*sr); a[-fade:] *= np.linspace(1,0,fade); a=np.tanh(a*1.7)*0.82
 with wave.open('/tmp/dr.wav','wb') as w:
     w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr); w.writeframes((a*32767).astype(np.int16).tobytes())
-
-subprocess.run(['ffmpeg','-y','-i','/tmp/dr_silent.mp4','-i','/tmp/dr.wav','-c:v','copy','-c:a','aac','-b:a','128k','-shortest','-movflags','+faststart','public/download/dark-reds.mp4'],check=True)
+subprocess.run(['ffmpeg','-y','-i','/tmp/dr_silent.mp4','-i','/tmp/dr.wav','-c:v','copy','-c:a','aac','-b:a','112k','-shortest','-movflags','+faststart','public/download/dark-reds.mp4'],check=True)
 print('built',os.path.getsize('public/download/dark-reds.mp4'))
