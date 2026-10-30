@@ -27,7 +27,7 @@ jobs:
 
       - name: Rebuild background image
         run: |
-          cat dark-reds-assets/bg0.txt dark-reds-assets/bg1.txt dark-reds-assets/bg2.txt | base64 -d > /tmp/darkreds-bg.jpg
+          cat dark-reds-assets/bg0.txt dark-reds-assets/bg_15000.txt dark-reds-assets/bg_20000.txt dark-reds-assets/bg_25000.txt dark-reds-assets/bg_30000.txt dark-reds-assets/bg_35000.txt dark-reds-assets/bg_40000.txt | base64 -d > /tmp/darkreds-bg.jpg
           file /tmp/darkreds-bg.jpg
 
       - name: Render 30 second Story video
